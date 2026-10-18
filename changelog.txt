@@ -1,0 +1,4 @@
+2026-18-10 - WayClack Start
+- Project start with mainwindow.h/.cpp
+- CMakeLists.txt with SDL2 libs
+- Audio Driver working, missing files
