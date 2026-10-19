@@ -1,3 +1,18 @@
+2026-19-10 (05:40pm) - Interactive TUI - Version 0.2.0
+- New terminal dashboard (src/cli) with volume bar, mute, live keystroke feed,
+  pack switcher and status panel. Plain C++ (ANSI + raw termios), no extra deps.
+- Keyboard detection is now scoring-based (src/discovery): finds built-in
+  laptop keyboards (i8042/serio, "AT Translated Set 2 keyboard") as well as USB
+  keyboards, down-ranks mice that expose a HID keyboard interface, and rejects
+  button/media-only nodes. Returns a stable by-id/by-path link when available.
+- Keyboard listener now runs on a background thread (start/stop) so the UI can
+  drive it; shutdown is responsive via poll() and joins cleanly.
+- Audio samples are cached per pack (no more Mix_LoadWAV on every keystroke) and
+  chunks are freed properly; volume/mute are applied live.
+- Device and pack autodetection (src/discovery); removed hardcoded personal paths.
+  New CLI flags: --packs, --device, --mute.
+- Removed dead Parser::parse() debug helper.
+
 2026-19-10 (01:55am) - WayClack Working! - Version 0.1.0
 - Building and Running WayClack now play the sounds
 - It now is running in background (Deamon)

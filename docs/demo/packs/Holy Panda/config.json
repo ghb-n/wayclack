@@ -1,0 +1,1 @@
+{ "id": "demo-holypanda", "name": "Holy Panda", "sound": "thock.wav", "volume": "65", "defines": { "30": "thock.wav", "31": "thock.wav", "57": "space.wav" } }

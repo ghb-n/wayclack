@@ -1,42 +1,91 @@
 #include "mainwindow.h"
-#include "audio_driver/audio.h"
-#include "keyboard/keyboard.h"
-#include "parser/parser.h"
-#include <exception>
-#include <iostream>
-#include <nlohmann/json_fwd.hpp>
-#include <unordered_map>
+#include "cli/cli.h"
+#include "discovery/discovery.h"
 
-using namespace MW;
+#include <cstring>
+#include <iostream>
+#include <string>
+
+#ifndef WAYCLACK_VERSION
+#define WAYCLACK_VERSION "dev"
+#endif
+
 using namespace std;
 
-void mw::gretting() { cout << "Hello, World!" << "\n"; }
+namespace {
 
-int main() {
-  WayClack::AudioPlayer player;
-  WayClack::Keyboard keyboard;
-  WayClack::Parser parser;
-  mw m;
+void printUsage(const char *argv0) {
+  cout << "WayClack " << WAYCLACK_VERSION
+       << " - mechanical keyboard sound emulator (TUI)\n\n"
+       << "Usage: " << argv0 << " [options]\n\n"
+       << "Options:\n"
+       << "  -p, --packs <dir>    Directory containing sound packs\n"
+       << "                       (default: ~/mechvibes_custom)\n"
+       << "  -d, --device <path>  evdev device, e.g. /dev/input/event0\n"
+       << "                       (default: autodetect)\n"
+       << "  -l, --list-devices   List detected keyboard devices and exit\n"
+       << "  -m, --mute           Start muted\n"
+       << "  -v, --version        Show version and exit\n"
+       << "  -h, --help           Show this help\n\n"
+       << "Controls: [+/-] volume  [m] mute  [n/p] pack  [r] reload  [q] quit\n";
+}
 
-  m.gretting();
+void printDevices() {
+  auto devices = WayClack::Discovery::listKeyboardCandidates();
+  if (devices.empty()) {
+    cout << "No keyboard-like devices found.\n";
+    return;
+  }
+  cout << "Detected keyboard-like devices (best first):\n\n";
+  for (const auto &d : devices) {
+    cout << "  score " << d.score << "  " << d.path << "\n"
+         << "             name: " << d.name << "\n";
+    if (!d.stablePath.empty())
+      cout << "             link: " << d.stablePath << "\n";
+  }
+  cout << "\nA device with a positive score is a good candidate.\n";
+}
 
-  if (!player.init()) {
-    cerr << "Audio initalition failed! Exiting...\n";
-    return 1;
+} // namespace
+
+int main(int argc, char **argv) {
+  WayClack::TuiOptions options;
+  options.packsDir = "~/mechvibes_custom";
+
+  for (int i = 1; i < argc; ++i) {
+    string arg = argv[i];
+    auto next = [&](string &out) {
+      if (i + 1 < argc)
+        out = argv[++i];
+    };
+
+    if (arg == "-h" || arg == "--help") {
+      printUsage(argv[0]);
+      return 0;
+    } else if (arg == "-v" || arg == "--version") {
+      cout << "WayClack " << WAYCLACK_VERSION << "\n";
+      return 0;
+    } else if (arg == "-l" || arg == "--list-devices") {
+      printDevices();
+      return 0;
+    } else if (arg == "-p" || arg == "--packs") {
+      next(options.packsDir);
+    } else if (arg == "-d" || arg == "--device") {
+      next(options.devicePath);
+    } else if (arg == "-m" || arg == "--mute") {
+      options.startMuted = true;
+    } else {
+      cerr << "Unknown option: " << arg << "\n\n";
+      printUsage(argv[0]);
+      return 2;
+    }
   }
 
-  std::string content;
-  std::unordered_map<int, std::string> jsonContent;
+  WayClack::CLI cli;
   try {
-    content = parser.getFileContent(
-        "/home/thegrigorijagen/mechvibes_custom/Razer/config.json");
-    cout << "Config Loaded Successfully!\n";
-    jsonContent = parser.loadConfig(content);
-    keyboard.listenToInput("/dev/input/event0", jsonContent, player);
+    return cli.run(options);
   } catch (const exception &e) {
     cerr << "Error: " << e.what() << "\n";
     return 1;
   }
-
-  return 0;
 }

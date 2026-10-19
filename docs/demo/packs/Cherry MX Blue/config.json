@@ -1,0 +1,1 @@
+{ "id": "demo-mxblue", "name": "Cherry MX Blue", "sound": "click.wav", "volume": "80", "defines": { "30": "click.wav", "31": "click.wav", "57": "space.wav" } }

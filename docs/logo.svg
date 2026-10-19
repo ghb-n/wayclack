@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="WayClack logo">
+  <title>WayClack</title>
+  <desc>A mechanical keycap emitting soundwaves — the WayClack badge.</desc>
+
+  <defs>
+    <!-- Dark app-tile background -->
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#131a23"/>
+      <stop offset="1" stop-color="#0a0e14"/>
+    </linearGradient>
+
+    <linearGradient id="capTop" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1d2733"/>
+      <stop offset="1" stop-color="#141b24"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Rounded app tile -->
+  <rect x="16" y="16" width="480" height="480" rx="100" fill="url(#bg)"/>
+  <rect x="16" y="16" width="480" height="480" rx="100" fill="none"
+        stroke="#232c38" stroke-width="2"/>
+
+  <!--
+    Soundwaves radiating to the upper-right of the keycap.
+    The "glow" is faked with wide, low-opacity strokes underneath narrow bright
+    ones, and solid colours are used instead of gradient strokes so the artwork
+    renders identically in every SVG engine (including ImageMagick's built-in
+    renderer and GitHub's sanitized SVG pipeline).
+  -->
+  <g fill="none" stroke-linecap="round">
+    <!-- outer wave (green) -->
+    <path d="M372 96 A242 242 0 0 1 372 354" stroke="#4ade80" stroke-width="30" opacity="0.08"/>
+    <path d="M372 96 A242 242 0 0 1 372 354" stroke="#4ade80" stroke-width="16" opacity="0.14"/>
+    <path d="M372 96 A242 242 0 0 1 372 354" stroke="#4ade80" stroke-width="9"  opacity="0.45"/>
+    <!-- middle wave (teal) -->
+    <path d="M336 122 A196 196 0 0 1 336 328" stroke="#41e0ac" stroke-width="30" opacity="0.12"/>
+    <path d="M336 122 A196 196 0 0 1 336 328" stroke="#41e0ac" stroke-width="15" opacity="0.22"/>
+    <path d="M336 122 A196 196 0 0 1 336 328" stroke="#41e0ac" stroke-width="10" opacity="0.75"/>
+    <!-- inner wave (cyan) -->
+    <path d="M300 150 A150 150 0 0 1 300 300" stroke="#38e1d8" stroke-width="30" opacity="0.18"/>
+    <path d="M300 150 A150 150 0 0 1 300 300" stroke="#38e1d8" stroke-width="16" opacity="0.35"/>
+    <path d="M300 150 A150 150 0 0 1 300 300" stroke="#38e1d8" stroke-width="12" opacity="1"/>
+  </g>
+
+  <!-- Keycap base (sloped side) -->
+  <rect x="92" y="176" width="220" height="196" rx="46" fill="#0e131a"
+        stroke="#2a3542" stroke-width="3"/>
+
+  <!-- Keycap top face -->
+  <rect x="110" y="188" width="184" height="148" rx="34" fill="url(#capTop)"
+        stroke="#33404f" stroke-width="2"/>
+
+  <!-- Sheen across the top of the cap -->
+  <path d="M132 210 q60 -16 140 0" fill="none" stroke="#3d4b5c"
+        stroke-width="4" stroke-linecap="round" opacity="0.8"/>
+
+  <!-- Waveform "clack" mark on the cap face (glow faked with layering) -->
+  <g fill="none" stroke="#45e0ae" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M142 262 L158 240 L178 286 L198 236 L218 276 L238 252 L266 262"
+          stroke-width="18" opacity="0.14"/>
+    <path d="M142 262 L158 240 L178 286 L198 236 L218 276 L238 252 L266 262"
+          stroke-width="12" opacity="0.30"/>
+    <path d="M142 262 L158 240 L178 286 L198 236 L218 276 L238 252 L266 262"
+          stroke-width="9"/>
+  </g>
+</svg>

@@ -1,1 +1,7 @@
+build/
 build/*
+dist/
+*.o
+*.obj
+*.swp
+.DS_Store

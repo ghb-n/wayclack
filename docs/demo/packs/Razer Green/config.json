@@ -1,0 +1,1 @@
+{ "id": "demo-razer", "name": "Razer Green", "sound": "key1.wav", "volume": "100", "defines": { "30": "key1.wav", "31": "key2.wav", "57": "space.wav" } }

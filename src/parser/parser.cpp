@@ -23,28 +23,8 @@ std::string Parser::getFileContent(const std::string &filePath) {
 }
 
 void Parser::parse() {
-  try {
-    string rawData = getFileContent("config.json");
-
-    json config = json::parse(rawData);
-
-    string soundTheme = config["theme"];
-    int volume = config["volume"];
-    bool enabled = config["enabled"];
-    json defines = config["defines"];
-    std::unordered_map<std::string, std::string> keys = defines;
-    cout << "Loaded theme: " << soundTheme << "\n";
-    cout << "Volume level: " << volume << "\n";
-
-    auto print = [](const auto &key, const auto &value) {
-      cout << "Key:[" << key << "] Value:[" << value << "]\n";
-    };
-
-  } catch (const json::parse_error &e) {
-    cerr << "JSON Parsing Error: " << e.byte << ":" << e.what() << "\n";
-  } catch (const exception &e) {
-    cerr << "JSON Parse Failed: " << e.what() << "\n";
-  }
+  // Legacy helper retained for backward compatibility; prefer getFileContent()
+  // together with loadConfig()/loadUIConfig().
 }
 
 std::unordered_map<int, std::string>
@@ -60,4 +40,26 @@ WayClack::Parser::loadConfig(const std::string &jsonData) {
   }
 
   return keySounds;
+}
+std::unordered_map<std::string, int>
+WayClack::Parser::loadUIConfig(const std::string &jsonData) {
+  auto j = nlohmann::json::parse(jsonData);
+  std::unordered_map<std::string, int> configMap;
+
+  if (j.contains("volume")) {
+    // If volume is saved as a string like "100"
+    if (j["volume"].is_string()) {
+      try {
+        configMap["volume"] = std::stoi(j["volume"].get<std::string>());
+      } catch (const std::exception &e) {
+        std::cerr << "Failed to convert volume string to int: " << e.what()
+                  << "\n";
+      }
+    }
+    // If volume is saved as a raw number like 100
+    else if (j["volume"].is_number()) {
+      configMap["volume"] = j["volume"].get<int>();
+    }
+  }
+  return configMap;
 }
