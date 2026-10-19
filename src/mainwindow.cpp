@@ -1,5 +1,7 @@
 #include "mainwindow.h"
+#include "app/app.h"
 #include "cli/cli.h"
+#include "daemon/daemon.h"
 #include "discovery/discovery.h"
 
 #include <cstring>
@@ -16,8 +18,13 @@ namespace {
 
 void printUsage(const char *argv0) {
   cout << "WayClack " << WAYCLACK_VERSION
-       << " - mechanical keyboard sound emulator (TUI)\n\n"
+       << " - mechanical keyboard sound emulator\n\n"
        << "Usage: " << argv0 << " [options]\n\n"
+       << "Modes:\n"
+       << "  (default)            Interactive terminal UI\n"
+       << "      --tui            Interactive terminal UI\n"
+       << "      --daemon         Run in the background with a system-tray icon\n"
+       << "                       (no terminal; 'Open TUI' spawns one)\n\n"
        << "Options:\n"
        << "  -p, --packs <dir>    Directory containing sound packs\n"
        << "                       (default: ~/mechvibes_custom)\n"
@@ -27,7 +34,8 @@ void printUsage(const char *argv0) {
        << "  -m, --mute           Start muted\n"
        << "  -v, --version        Show version and exit\n"
        << "  -h, --help           Show this help\n\n"
-       << "Controls: [+/-] volume  [m] mute  [n/p] pack  [r] reload  [q] quit\n";
+       << "Controls (TUI): [+/-] volume  [m] mute  [n/p] pack  [r] reload  "
+          "[q] quit\n";
 }
 
 void printDevices() {
@@ -49,8 +57,8 @@ void printDevices() {
 } // namespace
 
 int main(int argc, char **argv) {
-  WayClack::TuiOptions options;
-  options.packsDir = "~/mechvibes_custom";
+  WayClack::AppOptions options;
+  bool daemon = false;
 
   for (int i = 1; i < argc; ++i) {
     string arg = argv[i];
@@ -68,6 +76,10 @@ int main(int argc, char **argv) {
     } else if (arg == "-l" || arg == "--list-devices") {
       printDevices();
       return 0;
+    } else if (arg == "--daemon" || arg == "--headless") {
+      daemon = true;
+    } else if (arg == "--tui") {
+      daemon = false;
     } else if (arg == "-p" || arg == "--packs") {
       next(options.packsDir);
     } else if (arg == "-d" || arg == "--device") {
@@ -81,8 +93,11 @@ int main(int argc, char **argv) {
     }
   }
 
-  WayClack::CLI cli;
   try {
+    if (daemon)
+      return WayClack::runDaemon(options);
+
+    WayClack::CLI cli;
     return cli.run(options);
   } catch (const exception &e) {
     cerr << "Error: " << e.what() << "\n";

@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=WayClack
+GenericName=Keyboard Sound Emulator
+Comment=Mechanical keyboard sounds for Wayland (terminal UI)
+Exec=wayclack
+Icon=wayclack
+Terminal=true
+Categories=Utility;
+Keywords=keyboard;sound;mechanical;clack;

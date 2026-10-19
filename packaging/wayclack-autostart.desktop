@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=WayClack
+Comment=Mechanical keyboard sounds (background tray service)
+Exec=wayclack --daemon
+Icon=wayclack
+Terminal=false
+X-GNOME-Autostart-enabled=true
+X-KDE-autostart-after=panel

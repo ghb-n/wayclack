@@ -37,6 +37,12 @@ The keyboard listener runs on a **background thread** while the UI stays
 interactive. Samples are decoded once and **cached per pack** — no disk reads on
 keystroke, and no leaks. Volume and mute apply instantly.
 
+### Runs as a background app with a panel icon
+Use `--daemon` to run without a terminal and show a **system-tray icon** with a
+menu to mute, change volume, switch sound packs, open the TUI, or quit. The tray
+is a StatusNotifierItem implemented **directly on D-Bus** — no Qt, GTK or
+appindicator dependency. `scripts/install.sh --autostart` starts it at login.
+
 ### Removed hardcoded paths
 Device and pack locations are now configurable (`--device`, `--packs`) with
 sensible defaults, replacing the previous hardcoded personal paths.
@@ -45,7 +51,7 @@ sensible defaults, replacing the previous hardcoded personal paths.
 
 ```sh
 # Dependencies (Debian/Ubuntu)
-sudo apt install libsdl2-dev libsdl2-mixer-dev nlohmann-json3-dev cmake g++
+sudo apt install libsdl2-dev libsdl2-mixer-dev nlohmann-json3-dev libdbus-1-dev cmake g++
 
 # Build from the source archive
 tar -xzf wayclack-1.0.0-src.tar.gz
@@ -53,9 +59,12 @@ cd wayclack-1.0.0
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build -j
 
-# Run
+# Run (terminal UI)
 ./build/wayclack --list-devices
 ./build/wayclack --packs ~/mechvibes_custom
+
+# Or install per-user (add --autostart to start the tray at login)
+scripts/install.sh
 ```
 
 > Reading `/dev/input/event*` requires membership in the `input` group:

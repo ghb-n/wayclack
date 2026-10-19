@@ -1,5 +1,6 @@
 #pragma once
 #include "../audio_driver/audio.h"
+#include "../app/app.h"
 #include "../discovery/discovery.h"
 #include "../keyboard/keyboard.h"
 #include <deque>
@@ -9,12 +10,8 @@
 
 namespace WayClack {
 
-// Configuration passed into the TUI at start-up.
-struct TuiOptions {
-  std::string packsDir;             // Directory to scan for packs.
-  std::string devicePath;           // evdev node (may be empty -> autodetect).
-  bool startMuted = false;          // Start with audio muted.
-};
+// The TUI takes the same start-up options as every other front-end.
+using TuiOptions = AppOptions;
 
 // TUI renders an interactive dashboard in the terminal and drives the
 // Keyboard listener.

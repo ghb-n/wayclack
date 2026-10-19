@@ -30,6 +30,9 @@ dependency-free terminal UI.
 - **Low-latency input capture** — reads the Linux input subsystem
   (`/dev/input/event*`) directly on a background thread, bypassing display-server
   restrictions entirely. Works on Wayland and X11.
+- **System-tray mode** — run it as a background service with a **panel icon**
+  (StatusNotifierItem) and a menu to mute, change the sound pack, open the TUI,
+  or quit. Implemented directly on **D-Bus** — no Qt/GTK/appindicator required.
 - **Smart device autodetection** — scores every input node and picks the best
   keyboard. It finds **built-in laptop keyboards** (`i8042`/`serio`, e.g.
   *"AT Translated Set 2 keyboard"*) as well as USB boards, down-ranks mice that
@@ -51,6 +54,10 @@ dependency-free terminal UI.
 - CMake ≥ 3.14
 - Membership in the `input` group (see [Permissions](#permissions))
 
+The system-tray icon additionally uses **libdbus** (`libdbus-1-dev`). This is
+auto-detected at configure time: if it is missing, WayClack still builds — just
+without tray support.
+
 ## Build
 
 ```sh
@@ -62,11 +69,34 @@ cmake --build build -j
 
 The binary is produced at `build/wayclack`.
 
+## Install (per-user)
+
+To get a desktop launcher and, optionally, an autostarting tray service:
+
+```sh
+scripts/install.sh              # binary + icon + app-menu launcher
+scripts/install.sh --autostart  # also start the tray service at login
+scripts/install.sh --uninstall  # remove everything it installed
+```
+
+This installs into `~/.local` (override with `WAYCLACK_PREFIX`) and adds the
+logo to the icon theme so it appears in the panel.
+
 ## Usage
 
 ```sh
 wayclack [options]
 ```
+
+### Modes
+
+| Mode | Description |
+| --- | --- |
+| *(default)* / `--tui` | Interactive terminal dashboard |
+| `--daemon` / `--headless` | Background service with a system-tray icon (no terminal) |
+
+In `--daemon` mode the tray menu offers **Mute**, **Volume ±**, **Next/Previous
+sound pack**, **Open TUI** (spawns a terminal), and **Quit**.
 
 | Option | Description |
 | --- | --- |
@@ -158,6 +188,25 @@ sudo usermod -aG input "$USER"
 Verify with `groups` (you should see `input`). Running as root also works but is
 not recommended.
 
+## Running as a background app
+
+`--daemon` runs the listener and a **panel icon** without any terminal:
+
+```sh
+wayclack --daemon &
+```
+
+The icon's menu provides mute, volume, sound-pack switching, *Open TUI*, and
+quit. To launch it automatically at login:
+
+```sh
+scripts/install.sh --autostart
+```
+
+The tray icon is a StatusNotifierItem served over D-Bus, so it works in Plasma,
+GNOME (with an appindicator extension), sway/Hyprland panels, and any other
+host that implements the protocol.
+
 ## Troubleshooting
 
 | Symptom | Fix |
@@ -167,12 +216,17 @@ not recommended.
 | No packs found | Check `--packs <dir>`; each pack needs a `config.json`. |
 | No sound | Confirm SDL2_mixer is installed and the pack's `.wav` files exist. |
 | UI looks garbled | Use a modern terminal with UTF-8 and a monospace font. |
+| Text drawn but no audio | Check the `mute` state (`m`) and the pack's `volume`. |
+| No tray icon in `--daemon` | Ensure `libdbus` was found at build time and a session bus is running (`$DBUS_SESSION_BUS_ADDRESS`). |
 
 ## Project layout
 
 ```
 src/
 ├── mainwindow.cpp          # entry point, CLI argument parsing
+├── app/                    # headless core (audio + listener + pack control)
+├── daemon/                 # background/tray front-end
+├── tray/                   # StatusNotifierItem + dbusmenu over libdbus
 ├── cli/                    # TUI (rendering, input, layout)
 ├── keyboard/               # threaded evdev listener + key-name mapping
 ├── audio_driver/           # SDL_mixer wrapper with per-pack sample cache
@@ -182,6 +236,8 @@ docs/
 ├── logo.svg / logo.png     # project logo
 ├── demo.gif                # demo recording
 └── demo/                   # vhs tape + GIF render script + sample packs
+packaging/                  # .desktop launcher + autostart entry
+scripts/                    # install.sh, package.sh, release.sh
 ```
 
 ## Contributing

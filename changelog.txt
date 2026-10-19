@@ -1,3 +1,17 @@
+2026-19-10 (06:30pm) - System tray & v1.0.0 release - Version 1.0.0
+- New system-tray mode (--daemon): a panel icon (StatusNotifierItem) with a menu
+  to mute, change volume, switch sound packs, open the TUI, and quit. Implemented
+  directly on D-Bus (src/tray) - no Qt/GTK/appindicator dependency. libdbus is
+  auto-detected; without it the TUI still builds, just with no tray.
+- New "Open TUI" tray action spawns the dashboard in the user's terminal.
+- Shared headless core (src/app) so the TUI and the tray daemon drive the same
+  audio + listener instead of duplicating pack/volume logic.
+- Added --tui / --daemon (--headless) mode flags.
+- Per-user installer (scripts/install.sh): installs the binary, the logo into the
+  icon theme, an application launcher (.desktop) and an optional autostart entry.
+- Version bumped to 1.0.0, shown via --version.
+- Fixed a broken mainwindow.cpp left with merge-conflict markers.
+
 2026-19-10 (05:40pm) - Interactive TUI - Version 0.2.0
 - New terminal dashboard (src/cli) with volume bar, mute, live keystroke feed,
   pack switcher and status panel. Plain C++ (ANSI + raw termios), no extra deps.
