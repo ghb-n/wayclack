@@ -1,6 +1,0 @@
-[submodule "libs/json"]
-  path = "libs/nlohmann_json"
-  url = https://github.com/nlohmann/json
-[submodule "libs/linux"]
-  path = "libs/linux"
-  url = https://github.com/torvalds/linux
