@@ -159,6 +159,93 @@ struct TrayIconImpl {
     dbus_message_unref(reply);
   }
 
+  // Write one StatusNotifierItem property as a variant into `iter`.
+  // Returns false for an unknown property name.
+  bool writeProperty(DBusMessageIter *iter, const char *prop) {
+    if (strcmp(prop, "Category") == 0) {
+      appendVariantString(iter, "ApplicationStatus");
+      return true;
+    }
+    if (strcmp(prop, "Id") == 0) {
+      appendVariantString(iter, "wayclack");
+      return true;
+    }
+    if (strcmp(prop, "Title") == 0) {
+      appendVariantString(iter, title.c_str());
+      return true;
+    }
+    if (strcmp(prop, "Status") == 0) {
+      appendVariantString(iter, "Active");
+      return true;
+    }
+    if (strcmp(prop, "IconName") == 0) {
+      appendVariantString(iter, iconName.c_str());
+      return true;
+    }
+    if (strcmp(prop, "AttentionIconName") == 0 ||
+        strcmp(prop, "OverlayIconName") == 0 ||
+        strcmp(prop, "AttentionMovieName") == 0 ||
+        strcmp(prop, "IconThemePath") == 0) {
+      // Advertised for completeness; we never set these.
+      appendVariantString(iter, "");
+      return true;
+    }
+    if (strcmp(prop, "ItemIsMenu") == 0) {
+      // false: left-click activates, right-click pops the menu (the usual
+      // behaviour panels expect).
+      appendVariantBool(iter, FALSE);
+      return true;
+    }
+    if (strcmp(prop, "WindowId") == 0) {
+      DBusMessageIter variant;
+      dbus_uint32_t v = 0;
+      dbus_message_iter_open_container(iter, DBUS_TYPE_VARIANT, "u", &variant);
+      dbus_message_iter_append_basic(&variant, DBUS_TYPE_UINT32, &v);
+      dbus_message_iter_close_container(iter, &variant);
+      return true;
+    }
+    if (strcmp(prop, "Menu") == 0) {
+      DBusMessageIter variant;
+      const char *v = kMenuPath;
+      dbus_message_iter_open_container(iter, DBUS_TYPE_VARIANT, "o", &variant);
+      dbus_message_iter_append_basic(&variant, DBUS_TYPE_OBJECT_PATH, &v);
+      dbus_message_iter_close_container(iter, &variant);
+      return true;
+    }
+    if (strcmp(prop, "IconPixmap") == 0 || strcmp(prop, "AttentionIconPixmap") == 0 ||
+        strcmp(prop, "OverlayIconPixmap") == 0) {
+      DBusMessageIter variant, arr;
+      dbus_message_iter_open_container(iter, DBUS_TYPE_VARIANT, "a(iiay)",
+                                       &variant);
+      dbus_message_iter_open_container(&variant, DBUS_TYPE_ARRAY, "(iiay)",
+                                       &arr);
+      dbus_message_iter_close_container(&variant, &arr);
+      dbus_message_iter_close_container(iter, &variant);
+      return true;
+    }
+    if (strcmp(prop, "ToolTip") == 0) {
+      // (sa(iiay)ss): icon name, pixmaps, title, subtitle. Panels read the
+      // title for the hover tooltip.
+      DBusMessageIter variant, st, arr;
+      dbus_message_iter_open_container(iter, DBUS_TYPE_VARIANT, "(sa(iiay)ss)",
+                                       &variant);
+      dbus_message_iter_open_container(&variant, DBUS_TYPE_STRUCT, nullptr,
+                                       &st);
+      const char *icon = iconName.c_str();
+      dbus_message_iter_append_basic(&st, DBUS_TYPE_STRING, &icon);
+      dbus_message_iter_open_container(&st, DBUS_TYPE_ARRAY, "(iiay)", &arr);
+      dbus_message_iter_close_container(&st, &arr);
+      const char *t = title.c_str();
+      const char *sub = "";
+      dbus_message_iter_append_basic(&st, DBUS_TYPE_STRING, &t);
+      dbus_message_iter_append_basic(&st, DBUS_TYPE_STRING, &sub);
+      dbus_message_iter_close_container(&variant, &st);
+      dbus_message_iter_close_container(iter, &variant);
+      return true;
+    }
+    return false;
+  }
+
   // org.freedesktop.DBus.Properties.Get(interface, name) -------------------
   void handlePropertiesGet(DBusConnection *c, DBusMessage *msg) {
     const char *iface = nullptr;
@@ -168,51 +255,12 @@ struct TrayIconImpl {
       return;
 
     DBusMessage *reply = dbus_message_new_method_return(msg);
-    DBusMessageIter iter, variant;
+    DBusMessageIter iter;
     dbus_message_iter_init_append(reply, &iter);
 
-    // All our properties are strings or bools.
-    if (strcmp(prop, "Category") == 0) {
-      const char *v = "ApplicationStatus";
-      dbus_message_iter_open_container(&iter, DBUS_TYPE_VARIANT, "s", &variant);
-      dbus_message_iter_append_basic(&variant, DBUS_TYPE_STRING, &v);
-      dbus_message_iter_close_container(&iter, &variant);
-    } else if (strcmp(prop, "Id") == 0) {
-      const char *v = "wayclack";
-      dbus_message_iter_open_container(&iter, DBUS_TYPE_VARIANT, "s", &variant);
-      dbus_message_iter_append_basic(&variant, DBUS_TYPE_STRING, &v);
-      dbus_message_iter_close_container(&iter, &variant);
-    } else if (strcmp(prop, "Title") == 0) {
-      const char *v = title.c_str();
-      dbus_message_iter_open_container(&iter, DBUS_TYPE_VARIANT, "s", &variant);
-      dbus_message_iter_append_basic(&variant, DBUS_TYPE_STRING, &v);
-      dbus_message_iter_close_container(&iter, &variant);
-    } else if (strcmp(prop, "Status") == 0) {
-      const char *v = "Active";
-      dbus_message_iter_open_container(&iter, DBUS_TYPE_VARIANT, "s", &variant);
-      dbus_message_iter_append_basic(&variant, DBUS_TYPE_STRING, &v);
-      dbus_message_iter_close_container(&iter, &variant);
-    } else if (strcmp(prop, "IconName") == 0) {
-      const char *v = iconName.c_str();
-      dbus_message_iter_open_container(&iter, DBUS_TYPE_VARIANT, "s", &variant);
-      dbus_message_iter_append_basic(&variant, DBUS_TYPE_STRING, &v);
-      dbus_message_iter_close_container(&iter, &variant);
-    } else if (strcmp(prop, "ItemIsMenu") == 0) {
-      dbus_bool_t v = TRUE;
-      dbus_message_iter_open_container(&iter, DBUS_TYPE_VARIANT, "b", &variant);
-      dbus_message_iter_append_basic(&variant, DBUS_TYPE_BOOLEAN, &v);
-      dbus_message_iter_close_container(&iter, &variant);
-    } else if (strcmp(prop, "Menu") == 0) {
-      const char *v = kMenuPath;
-      dbus_message_iter_open_container(&iter, DBUS_TYPE_VARIANT, "o", &variant);
-      dbus_message_iter_append_basic(&variant, DBUS_TYPE_OBJECT_PATH, &v);
-      dbus_message_iter_close_container(&iter, &variant);
-    } else {
-      // Unknown property: return an empty variant to satisfy the call.
-      const char *v = "";
-      dbus_message_iter_open_container(&iter, DBUS_TYPE_VARIANT, "s", &variant);
-      dbus_message_iter_append_basic(&variant, DBUS_TYPE_STRING, &v);
-      dbus_message_iter_close_container(&iter, &variant);
+    if (!writeProperty(&iter, prop)) {
+      // Unknown property: an empty string variant keeps the host happy.
+      appendVariantString(&iter, "");
     }
 
     dbus_connection_send(c, reply, nullptr);
@@ -225,20 +273,26 @@ struct TrayIconImpl {
     dbus_message_iter_init_append(reply, &iter);
     dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY, "{sv}", &dict);
 
-    auto put = [&](const char *name, const char *value) {
+    // Return the full standard set; some panel implementations validate the
+    // property list and skip items that omit required entries.
+    static const char *kProps[] = {
+        "Category",       "Id",
+        "Title",          "Status",
+        "IconName",       "IconPixmap",
+        "AttentionIconName", "AttentionIconPixmap",
+        "OverlayIconName", "OverlayIconPixmap",
+        "AttentionMovieName", "ItemIsMenu",
+        "Menu",           "ToolTip",
+        "WindowId",       "IconThemePath"};
+    for (const char *prop : kProps) {
       DBusMessageIter entry;
       dbus_message_iter_open_container(&dict, DBUS_TYPE_DICT_ENTRY, nullptr,
                                        &entry);
-      dbus_message_iter_append_basic(&entry, DBUS_TYPE_STRING, &name);
-      appendVariantString(&entry, value);
+      dbus_message_iter_append_basic(&entry, DBUS_TYPE_STRING, &prop);
+      if (!writeProperty(&entry, prop))
+        appendVariantString(&entry, "");
       dbus_message_iter_close_container(&dict, &entry);
-    };
-    put("Category", "ApplicationStatus");
-    put("Id", "wayclack");
-    put("Title", title.c_str());
-    put("Status", "Active");
-    put("IconName", iconName.c_str());
-    put("Menu", kMenuPath);
+    }
 
     dbus_message_iter_close_container(&iter, &dict);
     dbus_connection_send(c, reply, nullptr);
@@ -275,6 +329,57 @@ struct TrayIconImpl {
     dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY, "(ia{sv})", &arr);
     // We can return an empty list; hosts fall back to GetLayout.
     dbus_message_iter_close_container(&iter, &arr);
+    dbus_connection_send(c, reply, nullptr);
+    dbus_message_unref(reply);
+  }
+
+  // com.canonical.dbusmenu.GetProperty(id, name) -> v ---------------------
+  void handleMenuGetProperty(DBusConnection *c, DBusMessage *msg) {
+    DBusMessage *reply = dbus_message_new_method_return(msg);
+    DBusMessageIter iter;
+    dbus_message_iter_init_append(reply, &iter);
+    // Best-effort: return an empty string variant for any requested property.
+    appendVariantString(&iter, "");
+    dbus_connection_send(c, reply, nullptr);
+    dbus_message_unref(reply);
+  }
+
+  // org.freedesktop.DBus.Properties.Get on com.canonical.dbusmenu --------
+  void handleMenuPropertiesGet(DBusConnection *c, DBusMessage *msg,
+                               bool getAll) {
+    DBusMessage *reply = dbus_message_new_method_return(msg);
+    DBusMessageIter iter, dict;
+    dbus_message_iter_init_append(reply, &iter);
+    dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY, "{sv}", &dict);
+
+    auto putU = [&](const char *name, dbus_uint32_t value) {
+      DBusMessageIter entry, variant;
+      dbus_message_iter_open_container(&dict, DBUS_TYPE_DICT_ENTRY, nullptr,
+                                       &entry);
+      dbus_message_iter_append_basic(&entry, DBUS_TYPE_STRING, &name);
+      dbus_message_iter_open_container(&entry, DBUS_TYPE_VARIANT, "u", &variant);
+      dbus_message_iter_append_basic(&variant, DBUS_TYPE_UINT32, &value);
+      dbus_message_iter_close_container(&entry, &variant);
+      dbus_message_iter_close_container(&dict, &entry);
+    };
+    auto putS = [&](const char *name, const char *value) {
+      DBusMessageIter entry;
+      dbus_message_iter_open_container(&dict, DBUS_TYPE_DICT_ENTRY, nullptr,
+                                       &entry);
+      dbus_message_iter_append_basic(&entry, DBUS_TYPE_STRING, &name);
+      appendVariantString(&entry, value);
+      dbus_message_iter_close_container(&dict, &entry);
+    };
+
+    if (getAll) {
+      putU("Version", 3);
+      putS("TextDirection", "ltr");
+      putS("Status", "normal");
+    } else {
+      putU("Version", 3);
+    }
+
+    dbus_message_iter_close_container(&iter, &dict);
     dbus_connection_send(c, reply, nullptr);
     dbus_message_unref(reply);
   }
@@ -335,20 +440,198 @@ struct TrayIconImpl {
     sendEmptyReply(msg, c);
   }
 
+  // org.freedesktop.DBus.Introspectable.Introspect -------------------------
+  //
+  // Panels (Plasma included) call Introspect before using an object. If the
+  // reply is missing or malformed the host may give up on the item - which
+  // shows up as a tray icon with no menu. So we return real XML.
+  void handleIntrospect(DBusConnection *c, DBusMessage *msg) {
+    const char *path = dbus_message_get_path(msg);
+    string xml;
+    if (path != nullptr && strcmp(path, kMenuPath) == 0) {
+      xml =
+          "<!DOCTYPE node PUBLIC \"-//freedesktop//DTD D-BUS Object "
+          "Introspection 1.0//EN\"\n"
+          "\"http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd\">\n"
+          "<node>\n"
+          "  <interface name=\"com.canonical.dbusmenu\">\n"
+          "    <method name=\"GetLayout\">\n"
+          "      <arg type=\"i\" name=\"parentId\" direction=\"in\"/>\n"
+          "      <arg type=\"i\" name=\"recursionDepth\" direction=\"in\"/>\n"
+          "      <arg type=\"as\" name=\"propertyNames\" direction=\"in\"/>\n"
+          "      <arg type=\"u\" name=\"revision\" direction=\"out\"/>\n"
+          "      <arg type=\"(ia{sv}av)\" name=\"layout\" direction=\"out\"/>\n"
+          "    </method>\n"
+          "    <method name=\"GetGroupProperties\">\n"
+          "      <arg type=\"ai\" name=\"ids\" direction=\"in\"/>\n"
+          "      <arg type=\"as\" name=\"propertyNames\" direction=\"in\"/>\n"
+          "      <arg type=\"a(ia{sv})\" name=\"properties\" direction=\"out\"/>\n"
+          "    </method>\n"
+          "    <method name=\"GetProperty\">\n"
+          "      <arg type=\"i\" name=\"id\" direction=\"in\"/>\n"
+          "      <arg type=\"s\" name=\"name\" direction=\"in\"/>\n"
+          "      <arg type=\"v\" name=\"value\" direction=\"out\"/>\n"
+          "    </method>\n"
+          "    <method name=\"Event\">\n"
+          "      <arg type=\"i\" name=\"id\" direction=\"in\"/>\n"
+          "      <arg type=\"s\" name=\"eventId\" direction=\"in\"/>\n"
+          "      <arg type=\"v\" name=\"data\" direction=\"in\"/>\n"
+          "      <arg type=\"u\" name=\"timestamp\" direction=\"in\"/>\n"
+          "    </method>\n"
+          "    <method name=\"AboutToShow\">\n"
+          "      <arg type=\"i\" name=\"id\" direction=\"in\"/>\n"
+          "      <arg type=\"b\" name=\"needUpdate\" direction=\"out\"/>\n"
+          "    </method>\n"
+          "    <method name=\"AboutToShowGroup\">\n"
+          "      <arg type=\"ai\" name=\"ids\" direction=\"in\"/>\n"
+          "      <arg type=\"ai\" name=\"updatesNeeded\" direction=\"out\"/>\n"
+          "      <arg type=\"ai\" name=\"idErrors\" direction=\"out\"/>\n"
+          "    </method>\n"
+          "    <signal name=\"ItemsPropertiesUpdated\">\n"
+          "      <arg type=\"a(ia{sv})\" name=\"updatedProps\"/>\n"
+          "      <arg type=\"a(ias)\" name=\"removedProps\"/>\n"
+          "    </signal>\n"
+          "    <signal name=\"LayoutUpdated\">\n"
+          "      <arg type=\"u\" name=\"revision\"/>\n"
+          "      <arg type=\"i\" name=\"parent\"/>\n"
+          "    </signal>\n"
+          "    <property name=\"Version\" type=\"u\" access=\"read\"/>\n"
+          "    <property name=\"TextDirection\" type=\"s\" access=\"read\"/>\n"
+          "    <property name=\"Status\" type=\"s\" access=\"read\"/>\n"
+          "    <property name=\"IconThemePath\" type=\"as\" access=\"read\"/>\n"
+          "  </interface>\n"
+          "  <interface name=\"org.freedesktop.DBus.Introspectable\">\n"
+          "    <method name=\"Introspect\">\n"
+          "      <arg type=\"s\" name=\"xml_data\" direction=\"out\"/>\n"
+          "    </method>\n"
+          "  </interface>\n"
+          "</node>\n";
+    } else {
+      xml =
+          "<!DOCTYPE node PUBLIC \"-//freedesktop//DTD D-BUS Object "
+          "Introspection 1.0//EN\"\n"
+          "\"http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd\">\n"
+          "<node>\n"
+          "  <interface name=\"org.kde.StatusNotifierItem\">\n"
+          "    <method name=\"ContextMenu\">\n"
+          "      <arg type=\"i\" name=\"x\" direction=\"in\"/>\n"
+          "      <arg type=\"i\" name=\"y\" direction=\"in\"/>\n"
+          "    </method>\n"
+          "    <method name=\"Activate\">\n"
+          "      <arg type=\"i\" name=\"x\" direction=\"in\"/>\n"
+          "      <arg type=\"i\" name=\"y\" direction=\"in\"/>\n"
+          "    </method>\n"
+          "    <method name=\"SecondaryActivate\">\n"
+          "      <arg type=\"i\" name=\"x\" direction=\"in\"/>\n"
+          "      <arg type=\"i\" name=\"y\" direction=\"in\"/>\n"
+          "    </method>\n"
+          "    <method name=\"Scroll\">\n"
+          "      <arg type=\"i\" name=\"delta\" direction=\"in\"/>\n"
+          "      <arg type=\"s\" name=\"orientation\" direction=\"in\"/>\n"
+          "    </method>\n"
+          "    <signal name=\"NewIcon\"/>\n"
+          "    <signal name=\"NewToolTip\"/>\n"
+          "    <signal name=\"NewStatus\">\n"
+          "      <arg type=\"s\" name=\"status\"/>\n"
+          "    </signal>\n"
+          "    <property name=\"Category\" type=\"s\" access=\"read\"/>\n"
+          "    <property name=\"Id\" type=\"s\" access=\"read\"/>\n"
+          "    <property name=\"Title\" type=\"s\" access=\"read\"/>\n"
+          "    <property name=\"Status\" type=\"s\" access=\"read\"/>\n"
+          "    <property name=\"IconName\" type=\"s\" access=\"read\"/>\n"
+          "    <property name=\"IconPixmap\" type=\"a(iiay)\" access=\"read\"/>\n"
+          "    <property name=\"ItemIsMenu\" type=\"b\" access=\"read\"/>\n"
+          "    <property name=\"Menu\" type=\"o\" access=\"read\"/>\n"
+          "    <property name=\"ToolTip\" type=\"(sa(iiay)ss)\" access=\"read\"/>\n"
+          "  </interface>\n"
+          "  <interface name=\"org.freedesktop.DBus.Introspectable\">\n"
+          "    <method name=\"Introspect\">\n"
+          "      <arg type=\"s\" name=\"xml_data\" direction=\"out\"/>\n"
+          "    </method>\n"
+          "  </interface>\n"
+          "  <interface name=\"org.freedesktop.DBus.Properties\">\n"
+          "    <method name=\"Get\">\n"
+          "      <arg type=\"s\" name=\"interface_name\" direction=\"in\"/>\n"
+          "      <arg type=\"s\" name=\"property_name\" direction=\"in\"/>\n"
+          "      <arg type=\"v\" name=\"value\" direction=\"out\"/>\n"
+          "    </method>\n"
+          "    <method name=\"GetAll\">\n"
+          "      <arg type=\"s\" name=\"interface_name\" direction=\"in\"/>\n"
+          "      <arg type=\"a{sv}\" name=\"properties\" direction=\"out\"/>\n"
+          "    </method>\n"
+          "    <signal name=\"PropertiesChanged\">\n"
+          "      <arg type=\"s\" name=\"interface_name\"/>\n"
+          "      <arg type=\"a{sv}\" name=\"changed_properties\"/>\n"
+          "      <arg type=\"as\" name=\"invalidated_properties\"/>\n"
+          "    </signal>\n"
+          "  </interface>\n"
+          "</node>\n";
+    }
+
+    DBusMessage *reply = dbus_message_new_method_return(msg);
+    DBusMessageIter iter;
+    dbus_message_iter_init_append(reply, &iter);
+    const char *str = xml.c_str();
+    dbus_message_iter_append_basic(&iter, DBUS_TYPE_STRING, &str);
+    dbus_connection_send(c, reply, nullptr);
+    dbus_message_unref(reply);
+  }
+
+  // com.canonical.dbusmenu.AboutToShow(id) -> b --------------------------
+  void handleMenuAboutToShow(DBusConnection *c, DBusMessage *msg) {
+    DBusMessage *reply = dbus_message_new_method_return(msg);
+    DBusMessageIter iter;
+    dbus_message_iter_init_append(reply, &iter);
+    dbus_bool_t needUpdate = FALSE;
+    dbus_message_iter_append_basic(&iter, DBUS_TYPE_BOOLEAN, &needUpdate);
+    dbus_connection_send(c, reply, nullptr);
+    dbus_message_unref(reply);
+  }
+
+  // com.canonical.dbusmenu.AboutToShowGroup(ids) -> (ai, ai) -------------
+  void handleMenuAboutToShowGroup(DBusConnection *c, DBusMessage *msg) {
+    DBusMessage *reply = dbus_message_new_method_return(msg);
+    DBusMessageIter iter, arr1, arr2;
+    dbus_message_iter_init_append(reply, &iter);
+    dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY, "i", &arr1);
+    dbus_message_iter_close_container(&iter, &arr1);
+    dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY, "i", &arr2);
+    dbus_message_iter_close_container(&iter, &arr2);
+    dbus_connection_send(c, reply, nullptr);
+    dbus_message_unref(reply);
+  }
+
   // Dispatch a single incoming message.
   void dispatch(DBusMessage *msg) {
     const char *iface = dbus_message_get_interface(msg);
     const char *member = dbus_message_get_member(msg);
+    const char *path = dbus_message_get_path(msg);
     if (iface == nullptr || member == nullptr)
       return;
 
-    if (strcmp(iface, kPropsInterface) == 0) {
-      if (strcmp(member, "Get") == 0)
-        handlePropertiesGet(conn, msg);
-      else if (strcmp(member, "GetAll") == 0)
-        handlePropertiesGetAll(conn, msg);
+    const bool onMenu = (path != nullptr && strcmp(path, kMenuPath) == 0);
+
+    if (strcmp(iface, "org.freedesktop.DBus.Introspectable") == 0) {
+      if (strcmp(member, "Introspect") == 0)
+        handleIntrospect(conn, msg);
       else
         handleNoop(conn, msg);
+      return;
+    }
+    if (strcmp(iface, kPropsInterface) == 0) {
+      if (strcmp(member, "Get") == 0) {
+        if (onMenu)
+          handleMenuPropertiesGet(conn, msg, false);
+        else
+          handlePropertiesGet(conn, msg);
+      } else if (strcmp(member, "GetAll") == 0) {
+        if (onMenu)
+          handleMenuPropertiesGet(conn, msg, true);
+        else
+          handlePropertiesGetAll(conn, msg);
+      } else {
+        handleNoop(conn, msg);
+      }
       return;
     }
     if (strcmp(iface, kMenuInterface) == 0) {
@@ -356,16 +639,29 @@ struct TrayIconImpl {
         handleMenuGetLayout(conn, msg);
       else if (strcmp(member, "GetGroupProperties") == 0)
         handleMenuGetGroupProperties(conn, msg);
+      else if (strcmp(member, "GetProperty") == 0)
+        handleMenuGetProperty(conn, msg);
       else if (strcmp(member, "Event") == 0)
         handleMenuEvent(conn, msg);
       else if (strcmp(member, "AboutToShow") == 0)
-        handleNoop(conn, msg);
+        handleMenuAboutToShow(conn, msg);
+      else if (strcmp(member, "AboutToShowGroup") == 0)
+        handleMenuAboutToShowGroup(conn, msg);
       else
         handleNoop(conn, msg);
       return;
     }
     if (strcmp(iface, kItemInterface) == 0) {
-      // Activate / SecondaryActivate / ContextMenu on the icon itself.
+      if (strcmp(member, "Activate") == 0 ||
+          strcmp(member, "SecondaryActivate") == 0) {
+        // Left-click on the icon opens the TUI (ItemIsMenu is false, so the
+        // panel sends Activate and pops the menu itself on right-click).
+        sendEmptyReply(msg, conn);
+        if (callbacks.onOpenTui)
+          callbacks.onOpenTui();
+        return;
+      }
+      // ContextMenu / Scroll: the host pops our dbusmenu itself.
       handleNoop(conn, msg);
       return;
     }
