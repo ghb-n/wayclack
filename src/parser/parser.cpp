@@ -1,0 +1,41 @@
+#include "parser.h"
+#include <fstream>
+#include <nlohmann/json.hpp>
+#include <nlohmann/json_fwd.hpp>
+#include <sstream>
+#include <stdexcept>
+#include <string>
+
+using namespace std;
+using json = nlohmann::json;
+using namespace WayClack;
+std::string Parser::getFileContent(const std::string &filePath) {
+  std::ifstream file(filePath, std::ios::in | std::ios::binary);
+  if (!file.is_open()) {
+    throw std::runtime_error("Failed to open file: " + filePath);
+  }
+
+  std::ostringstream buffer;
+  buffer << file.rdbuf();
+
+  return buffer.str();
+}
+
+void Parser::parse() {
+  try {
+    string rawData = getFileContent("config.json");
+
+    json config = json::parse(rawData);
+
+    string soundTheme = config["theme"];
+    int volume = config["volume"];
+    bool enabled = config["enabled"];
+
+    cout << "Loaded theme: " << soundTheme << "\n";
+    cout << "Volume level: " << volume << "\n";
+  } catch (const json::parse_error &e) {
+    cerr << "JSON Parsing Error: " << e.byte << ":" << e.what() << "\n";
+  } catch (const exception &e) {
+    cerr << "JSON Parse Failed: " << e.what() << "\n";
+  }
+}
