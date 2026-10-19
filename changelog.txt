@@ -1,8 +1,13 @@
-2026-19-10 - WayClack improvement
+2026-19-10 (01:55am) - WayClack Working! - Version 0.1.0
+- Building and Running WayClack now play the sounds
+- It now is running in background (Deamon)
+- Next Steps: CLI to control the soundpack, volume with some customizable shortcuts.
+
+2026-18-10 - WayClack improvement 0.0.5
 - Now it detects keyboard and MechVibes configs via <linux/input.h>
 - It know parse the "config.json" via nlohman modern json C++ lib
 
-2026-18-10 - WayClack Start
+2026-18-10 (01:25am)- WayClack Start
 - Project start with mainwindow.h/.cpp
 - CMakeLists.txt with SDL2 libs
 - Audio Driver working, missing files

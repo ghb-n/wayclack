@@ -2,7 +2,10 @@
 #include <fcntl.h>
 #include <stdexcept>
 
-void WayClack::Keyboard::listenToInput(const char *devicePath) {
+void WayClack::Keyboard::listenToInput(
+    const char *devicePath,
+    const std::unordered_map<int, std::string> &keySounds,
+    WayClack::AudioPlayer &player) {
   int fd = open(devicePath, O_RDONLY);
   if (fd < 0) {
     throw std::runtime_error(
@@ -21,11 +24,16 @@ void WayClack::Keyboard::listenToInput(const char *devicePath) {
       continue;
     }
 
-    if (ev.type == EV_KEY) {
-      if (ev.value == 1) {
-        std::cout << "Key DOWN code: " << ev.code << "\n";
-      } else if (ev.value == 0) {
-        std::cout << "Key UP Code: " << ev.code << "\n";
+    if (ev.type == EV_KEY && ev.value == 1) {
+      int keyCode = ev.code;
+
+      auto it = keySounds.find(keyCode);
+      if (it != keySounds.end()) {
+        std::string soundFile = it->second;
+
+        player.playSound(soundFile);
+        std::cout << "Key " << ev.code << " Pressed -> Playing: " << soundFile
+                  << "\n";
       }
     }
   }
