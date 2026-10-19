@@ -138,6 +138,13 @@ void App::prevPack() {
     loadPack((selectedPack_ - 1 + packs_.size()) % packs_.size(), true);
 }
 
+void App::selectPack(int index) {
+  lock_guard<mutex> lock(mutex_);
+  if (index < 0 || index >= static_cast<int>(packs_.size()))
+    return;
+  loadPack(static_cast<size_t>(index), true);
+}
+
 string App::activePackName() const {
   if (selectedPack_ < 0 || selectedPack_ >= static_cast<int>(packs_.size()))
     return "<none>";

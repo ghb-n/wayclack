@@ -21,10 +21,14 @@ void printUsage(const char *argv0) {
        << " - mechanical keyboard sound emulator\n\n"
        << "Usage: " << argv0 << " [options]\n\n"
        << "Modes:\n"
-       << "  (default)            Interactive terminal UI\n"
+       << "  (default)            Interactive terminal UI (runs its own "
+          "listener)\n"
        << "      --tui            Interactive terminal UI\n"
-       << "      --daemon         Run in the background with a system-tray icon\n"
-       << "                       (no terminal; 'Open TUI' spawns one)\n\n"
+       << "      --attach         Attach the UI to a running --daemon "
+          "instance\n"
+       << "      --daemon         Run in the background with a system-tray "
+          "icon\n"
+       << "                       (no terminal; 'Open TUI' attaches to it)\n\n"
        << "Options:\n"
        << "  -p, --packs <dir>    Directory containing sound packs\n"
        << "                       (default: ~/mechvibes_custom)\n"
@@ -59,6 +63,7 @@ void printDevices() {
 int main(int argc, char **argv) {
   WayClack::AppOptions options;
   bool daemon = false;
+  bool attach = false;
 
   for (int i = 1; i < argc; ++i) {
     string arg = argv[i];
@@ -80,6 +85,8 @@ int main(int argc, char **argv) {
       daemon = true;
     } else if (arg == "--tui") {
       daemon = false;
+    } else if (arg == "--attach") {
+      attach = true;
     } else if (arg == "-p" || arg == "--packs") {
       next(options.packsDir);
     } else if (arg == "-d" || arg == "--device") {
@@ -98,6 +105,8 @@ int main(int argc, char **argv) {
       return WayClack::runDaemon(options);
 
     WayClack::CLI cli;
+    if (attach)
+      return cli.runAttached();
     return cli.run(options);
   } catch (const exception &e) {
     cerr << "Error: " << e.what() << "\n";

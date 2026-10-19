@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include <mutex>
 #include <string>
 #include <vector>
@@ -42,6 +43,12 @@ public:
   void toggleMute();
   void nextPack();
   void prevPack();
+  void selectPack(int index);
+
+  // Set when a front-end (e.g. a TUI client, or a tray menu entry) asks the
+  // running instance to exit. The daemon loop watches this.
+  void requestQuit() { quitRequested_.store(true); }
+  bool quitRequested() const { return quitRequested_.load(); }
 
   // --- Introspection ---
   int volume() const { return player_.volume(); }
@@ -75,6 +82,8 @@ private:
   std::string deviceName_;
   std::string status_;
   std::string reason_;
+
+  std::atomic<bool> quitRequested_{false};
 
   mutable std::mutex mutex_;
 };

@@ -3,10 +3,19 @@
   to mute, change volume, switch sound packs, open the TUI, and quit. Implemented
   directly on D-Bus (src/tray) - no Qt/GTK/appindicator dependency. libdbus is
   auto-detected; without it the TUI still builds, just with no tray.
-- New "Open TUI" tray action spawns the dashboard in the user's terminal.
+- New control socket (src/control): the daemon hosts a small Unix-socket protocol
+  so a terminal UI can drive the running instance instead of starting a second
+  audio listener.
+- "Open TUI" now opens a terminal running `wayclack --tui --attach`, which drives
+  the existing daemon. Closing it detaches; the tray keeps running. One process,
+  one keyboard listener. Added the --attach flag.
+- Tray "Quit" stops the daemon and any attached TUI; an attached TUI detects the
+  daemon going away and exits cleanly.
 - Shared headless core (src/app) so the TUI and the tray daemon drive the same
   audio + listener instead of duplicating pack/volume logic.
 - Added --tui / --daemon (--headless) mode flags.
+- Opened the keyboard device with O_CLOEXEC so spawned terminals do not inherit
+  the input-device descriptor.
 - Per-user installer (scripts/install.sh): installs the binary, the logo into the
   icon theme, an application launcher (.desktop) and an optional autostart entry.
 - Version bumped to 1.0.0, shown via --version.

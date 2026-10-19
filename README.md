@@ -92,11 +92,15 @@ wayclack [options]
 
 | Mode | Description |
 | --- | --- |
-| *(default)* / `--tui` | Interactive terminal dashboard |
+| *(default)* / `--tui` | Interactive terminal dashboard (runs its own listener) |
 | `--daemon` / `--headless` | Background service with a system-tray icon (no terminal) |
+| `--attach` | Terminal dashboard that drives an already-running `--daemon` |
 
 In `--daemon` mode the tray menu offers **Mute**, **Volume ±**, **Next/Previous
-sound pack**, **Open TUI** (spawns a terminal), and **Quit**.
+sound pack**, **Open TUI**, and **Quit**. *Open TUI* opens a terminal running
+`wayclack --tui --attach`, which connects to the **running** daemon over a Unix
+socket instead of starting a second listener. Closing that window **detaches**;
+the tray keeps running. **Quit** stops the daemon (and any attached TUI).
 
 | Option | Description |
 | --- | --- |
@@ -104,6 +108,9 @@ sound pack**, **Open TUI** (spawns a terminal), and **Quit**.
 | `-d, --device <path>` | evdev device, e.g. `/dev/input/event0` (default: autodetect) |
 | `-l, --list-devices` | List detected keyboard-like devices and exit |
 | `-m, --mute` | Start muted |
+| `--tui` | Interactive terminal dashboard (default) |
+| `--daemon` / `--headless` | Background service with a system-tray icon |
+| `--attach` | Terminal dashboard attached to a running `--daemon` |
 | `-v, --version` | Show version and exit |
 | `-h, --help` | Show help |
 
@@ -115,7 +122,8 @@ sound pack**, **Open TUI** (spawns a terminal), and **Quit**.
 | `m` | Mute / unmute |
 | `n` / `p` | Next / previous sound pack |
 | `r` | Reload the current pack from disk |
-| `q` | Quit |
+| `q` | Quit (in `--attach` mode this only detaches; the tray keeps running) |
+| `x` | Stop the daemon (only in `--attach` mode) |
 
 ### Finding your keyboard
 
@@ -197,7 +205,10 @@ wayclack --daemon &
 ```
 
 The icon's menu provides mute, volume, sound-pack switching, *Open TUI*, and
-quit. To launch it automatically at login:
+quit. *Open TUI* attaches a terminal dashboard to the running instance (one
+audio listener, one process); `q` in that dashboard detaches without stopping
+the tray, while the tray's *Quit* stops everything. To launch it automatically
+at login:
 
 ```sh
 scripts/install.sh --autostart

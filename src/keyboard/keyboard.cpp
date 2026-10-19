@@ -17,7 +17,7 @@ bool Keyboard::start(const std::string &devicePath, AudioPlayer &player) {
   if (running_.load())
     return true;
 
-  int fd = open(devicePath.c_str(), O_RDONLY);
+  int fd = open(devicePath.c_str(), O_RDONLY | O_CLOEXEC);
   if (fd < 0)
     return false;
 

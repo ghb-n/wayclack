@@ -5,10 +5,13 @@
 #include <cstdlib>
 #include <iostream>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include <sys/wait.h>
 #include <unistd.h>
+
+#include "../control/control.h"
 
 #ifdef WAYCLACK_HAVE_DBUS
 #include "../tray/tray.h"
@@ -36,8 +39,10 @@ string findTerminal() {
   return "";
 }
 
-// Launch the TUI in a new terminal window. Detached: we do not wait for it.
-void openTui(const string &argv0, const AppOptions &options) {
+// Launch the TUI in a new terminal window. The TUI attaches to this running
+// daemon over the control socket, so it does NOT start a second audio
+// listener: closing it leaves the tray running.
+void openTui(const string &argv0) {
   string term = findTerminal();
   if (term.empty()) {
     cerr << "No terminal emulator found to open the TUI.\n";
@@ -55,12 +60,8 @@ void openTui(const string &argv0, const AppOptions &options) {
     }
   }
 
-  // Rebuild the invocation, forcing the TUI (never the daemon/tray).
-  vector<string> args = {term, "-e", exe, "--tui"};
-  if (!options.packsDir.empty())
-    args.insert(args.end(), {"--packs", options.packsDir});
-  if (!options.devicePath.empty())
-    args.insert(args.end(), {"--device", options.devicePath});
+  // Force attach mode: the TUI connects to the running daemon.
+  vector<string> args = {term, "-e", exe, "--tui", "--attach"};
 
   pid_t pid = fork();
   if (pid == 0) {
@@ -95,6 +96,13 @@ int runDaemon(const AppOptions &options) {
   sigaction(SIGTERM, &sa, nullptr);
   signal(SIGPIPE, SIG_IGN);
 
+  // Host the control socket so a TUI can attach to this instance.
+  ControlServer control;
+  if (!control.start(app, &g_quit))
+    cerr << "WayClack: control socket unavailable (another daemon running?).\n"
+         << "          The tray works, but 'Open TUI' may start a new "
+            "instance.\n";
+
 #ifdef WAYCLACK_HAVE_DBUS
   string argv0;
   {
@@ -126,20 +134,27 @@ int runDaemon(const AppOptions &options) {
   string lastTitle;
 #else
   cout << "WayClack daemon running (built without D-Bus tray support).\n"
-       << "Send SIGTERM to stop.\n";
+       << "Attach a TUI with: wayclack --attach   (or send SIGTERM to stop)\n";
 #endif
 
-  // Main loop: service the tray on a worker thread so we can refresh the title
-  // and honour signals on this thread.
+  // Main loop: service the tray on a worker thread so we can refresh the title,
+  // pump the control socket, and honour signals on this thread.
   thread trayThread;
 #ifdef WAYCLACK_HAVE_DBUS
   if (trayReady)
     trayThread = thread([&] { tray.run(); });
+#endif
 
-  // Tray callbacks flip g_quit; stop() unblocks run() so the join returns.
-  while (!g_quit.load()) {
+  while (!g_quit.load() && !app.quitRequested()) {
+    // Service attached TUI clients and forward keyboard events to them.
+    control.poll();
+    auto events = app.keyboard().drainEvents(64);
+    for (auto &e : events)
+      control.pushKeyEvent(e.name, e.sound, e.hadSound);
+
+#ifdef WAYCLACK_HAVE_DBUS
     if (g_openTui.exchange(false))
-      openTui(argv0, options);
+      openTui(argv0);
 
     char title[256];
     snprintf(title, sizeof(title), "WayClack - %s%s %d%%",
@@ -149,16 +164,16 @@ int runDaemon(const AppOptions &options) {
       lastTitle = title;
       tray.setTitle(title);
     }
-    usleep(200 * 1000);
+#endif
+    usleep(50 * 1000);
   }
 
+#ifdef WAYCLACK_HAVE_DBUS
   tray.stop();
   if (trayThread.joinable())
     trayThread.join();
-#else
-  while (!g_quit.load())
-    usleep(200 * 1000);
 #endif
+  control.stop();
 
   app.stop();
   cout << "WayClack stopped.\n";

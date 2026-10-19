@@ -43,6 +43,10 @@ menu to mute, change volume, switch sound packs, open the TUI, or quit. The tray
 is a StatusNotifierItem implemented **directly on D-Bus** — no Qt, GTK or
 appindicator dependency. `scripts/install.sh --autostart` starts it at login.
 
+*Open TUI* attaches a terminal dashboard to the running daemon over a Unix
+socket (`--attach`), so there is exactly **one** audio listener: closing the
+window detaches and the tray keeps running. The tray's *Quit* stops everything.
+
 ### Removed hardcoded paths
 Device and pack locations are now configurable (`--device`, `--packs`) with
 sensible defaults, replacing the previous hardcoded personal paths.

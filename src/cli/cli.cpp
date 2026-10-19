@@ -19,6 +19,8 @@ namespace WayClack {
 // ANSI helper
 // ---------------------------------------------------------------------------
 namespace {
+
+// Strip ANSI escapes so we can measure visible width for alignment.
 const char *kReset = "\033[0m";
 const char *kBold = "\033[1m";
 const char *kDim = "\033[2m";
@@ -29,7 +31,6 @@ const char *kRed = "\033[31m";
 const char *kHideCursor = "\033[?25l";
 const char *kShowCursor = "\033[?25h";
 
-// Strip ANSI escapes so we can measure visible width for alignment.
 size_t visibleLength(const string &s) {
   size_t len = 0;
   bool inEscape = false;
@@ -156,8 +157,10 @@ void CLI::moveCursorToBottom() {
 // ---------------------------------------------------------------------------
 
 void CLI::drawVolumeBar(string &out, int width) const {
-  int volume = player_ ? player_->volume() : 0;
-  bool muted = player_ ? player_->muted() : false;
+  int volume = attached_ ? (client_ ? client_->state().volume : 0)
+                         : (player_ ? player_->volume() : 0);
+  bool muted = attached_ ? (client_ ? client_->state().muted : false)
+                         : (player_ ? player_->muted() : false);
 
   if (width < 10)
     width = 10;
@@ -198,6 +201,37 @@ string CLI::buildFrame() const {
   string out;
   out += kHideCursor;
 
+  // Pull the values we display from whichever mode is active.
+  const bool listening = attached_ ? (client_ && client_->state().listening)
+                                   : listenerOk_;
+  const string devNode = attached_ ? (client_ ? client_->state().device : "")
+                                   : device_;
+  const string devName = attached_
+                             ? (client_ ? client_->state().deviceName : "")
+                             : deviceName_;
+  const size_t packCount = attached_
+                               ? (client_ ? client_->state().packs.size() : 0)
+                               : packs_.size();
+  const int selected = attached_
+                           ? (client_ ? client_->state().selectedPack : -1)
+                           : selectedPack_;
+  const bool muted = attached_ ? (client_ && client_->state().muted)
+                               : (player_ && player_->muted());
+  const string status = attached_
+                            ? (client_ ? client_->state().status : "")
+                            : statusMessage_;
+  const vector<string> packNames = [&] {
+    vector<string> names;
+    if (attached_) {
+      if (client_)
+        names = client_->state().packs;
+    } else {
+      for (const auto &p : packs_)
+        names.push_back(p.name);
+    }
+    return names;
+  }();
+
   auto hr = [&](char l, char m, char r) {
     string line;
     line += l;
@@ -216,8 +250,10 @@ string CLI::buildFrame() const {
   out += hr('+', '=', '+') + "\n";
   string title = string(kBold) + kCyan + " WAYCLACK " + kReset +
                  " mechanical keyboard audio ";
-  string state = listenerOk_ ? (string(kGreen) + "LISTENING" + kReset)
-                             : (string(kRed) + "STOPPED" + kReset);
+  if (attached_)
+    title += string(kDim) + " (attached) ";
+  string state = listening ? (string(kGreen) + "LISTENING" + kReset)
+                           : (string(kRed) + "STOPPED" + kReset);
   string titleLine = title + "  " + state;
   out += row(titleLine) + "\n";
   out += hr('+', '=', '+') + "\n";
@@ -234,35 +270,35 @@ string CLI::buildFrame() const {
 
   // Show the human-readable device name (e.g. "AT Translated Set 2 keyboard")
   // rather than the opaque event node.
-  string deviceLabel = device_.empty() ? "<none>"
-                        : deviceName_.empty() ? device_
-                                              : deviceName_;
+  string deviceLabel = devNode.empty() ? "<none>"
+                        : devName.empty() ? devNode
+                                          : devName;
 
   left.push_back(string(kBold) + "Status" + kReset);
   left.push_back(string(kDim) + "dev" + kReset + "   " + deviceLabel);
   left.push_back(string(kDim) + "node" + kReset + "  " +
-                 (device_.empty() ? "<none>" : device_));
+                 (devNode.empty() ? "<none>" : devNode));
   left.push_back(string(kDim) + "packs" + kReset + "   " +
-                 to_string(packs_.size()));
+                 to_string(packCount));
   left.push_back(string(kDim) + "active" + kReset + "  " +
-                 (selectedPack_ >= 0 ? "yes" : "no"));
+                 (selected >= 0 ? "yes" : "no"));
   left.push_back(string(kDim) + "sound" + kReset + "   " +
-                 (player_ && player_->muted() ? "muted" : "on"));
-  if (!statusMessage_.empty()) {
+                 (muted ? "muted" : "on"));
+  if (!status.empty()) {
     left.push_back("");
-    left.push_back(string(kYellow) + statusMessage_ + kReset);
+    left.push_back(string(kYellow) + status + kReset);
   }
 
   right.push_back(string(kBold) + "Sound Packs" + kReset);
-  if (packs_.empty()) {
+  if (packNames.empty()) {
     right.push_back(string(kDim) + "(no packs found)" + kReset);
   } else {
-    for (size_t i = 0; i < packs_.size(); ++i) {
-      bool selected = (static_cast<int>(i) == selectedPack_);
-      string marker = selected ? string(kGreen) + ">" + kReset : " ";
-      string label = truncateTo(packs_[i].name, colRight - 4);
+    for (size_t i = 0; i < packNames.size(); ++i) {
+      bool isSelected = (static_cast<int>(i) == selected);
+      string marker = isSelected ? string(kGreen) + ">" + kReset : " ";
+      string label = truncateTo(packNames[i], colRight - 4);
       string line = marker + " " + label;
-      if (selected)
+      if (isSelected)
         line = string(kBold) + line + kReset;
       right.push_back(line);
     }
@@ -300,9 +336,15 @@ string CLI::buildFrame() const {
 
   // --- Controls ---
   string controls =
-      string(kDim) + "  [+/-] volume   [m] mute   [n/p] next/prev pack   "
-                     "[r] reload   [q] quit" +
-      kReset;
+      attached_
+          ? string(kDim) +
+                "  [+/-] volume   [m] mute   [n/p] next/prev pack   "
+                "[r] reload   [x] stop daemon   [q] detach" +
+                kReset
+          : string(kDim) +
+                "  [+/-] volume   [m] mute   [n/p] next/prev pack   "
+                "[r] reload   [q] quit" +
+                kReset;
   out += row(controls) + "\n";
   out += hr('+', '=', '+') + "\n";
 
@@ -427,6 +469,127 @@ bool CLI::handleKey(int key) {
     break;
   }
   return true;
+}
+
+// ---------------------------------------------------------------------------
+// Attached mode (drives a running daemon over the control socket)
+// ---------------------------------------------------------------------------
+
+bool CLI::handleAttachedKey(int key) {
+  if (client_ == nullptr)
+    return false;
+
+  switch (key) {
+  case 'q':
+  case 'Q':
+  case 3: // Ctrl+C — detach only; the daemon keeps running.
+    running_ = false;
+    return false;
+  case '+':
+  case '=':
+    client_->volumeUp();
+    break;
+  case '-':
+  case '_':
+    client_->volumeDown();
+    break;
+  case 'm':
+  case 'M':
+    client_->toggleMute();
+    break;
+  case 'n':
+  case 'N':
+    client_->nextPack();
+    break;
+  case 'p':
+  case 'P':
+    client_->prevPack();
+    break;
+  case 'r':
+  case 'R':
+    // Reload == re-select the current pack.
+    client_->selectPack(client_->state().selectedPack);
+    break;
+  case 'x':
+  case 'X':
+    // Quit the daemon itself (stops the tray too).
+    client_->quitServer();
+    break;
+  default:
+    break;
+  }
+  return true;
+}
+
+void CLI::refreshAttachedState() {
+  if (client_ == nullptr)
+    return;
+  vector<ControlClient::KeyEvent> events;
+  client_->poll(&events);
+  for (auto &e : events) {
+    string line = string(kCyan) + "  " + padTo(e.name, 10) + kReset;
+    if (e.hadSound)
+      line += string(kGreen) + "\u266a " + e.sound + kReset;
+    else
+      line += string(kDim) + "(no sample)" + kReset;
+    feed_.push_back(line);
+    while (feed_.size() > 32)
+      feed_.pop_front();
+  }
+}
+
+int CLI::runAttached() {
+  client_ = new ControlClient();
+  attached_ = true;
+
+  if (!client_->connect()) {
+    delete client_;
+    client_ = nullptr;
+    cerr << "No running WayClack daemon found.\n"
+         << "Start one with:  wayclack --daemon\n";
+    return 1;
+  }
+
+  if (!enterRawMode()) {
+    cerr << "This UI needs an interactive terminal (TTY).\n";
+    return 1;
+  }
+
+  bool lostConnection = false;
+  while (running_) {
+    refreshAttachedState();
+    if (!client_->connected()) {
+      // The daemon went away (tray Quit, crash, or logout).
+      lostConnection = true;
+      break;
+    }
+    render();
+
+    unsigned char buf[16];
+    ssize_t n = read(STDIN_FILENO, buf, sizeof(buf));
+    if (n > 0) {
+      for (ssize_t i = 0; i < n; ++i) {
+        if (buf[i] == '\033')
+          continue; // Skip escape sequences.
+        if (!handleAttachedKey(buf[i]))
+          break;
+      }
+    }
+    this_thread::sleep_for(chrono::milliseconds(50));
+  }
+
+  leaveRawMode();
+  fputs("\033[2J\033[H", stdout);
+  fputs(kShowCursor, stdout);
+  if (lostConnection)
+    cout << "WayClack stopped; detached.\n";
+  else
+    cout << "Detached from WayClack (the tray keeps running).\n";
+
+  delete client_;
+  client_ = nullptr;
+  attached_ = false;
+  return 0;
 }
 
 // ---------------------------------------------------------------------------

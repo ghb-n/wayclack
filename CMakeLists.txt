@@ -32,6 +32,7 @@ endif()
 add_executable(wayclack
   src/mainwindow.cpp
   src/app/app.cpp
+  src/control/control.cpp
   src/daemon/daemon.cpp
   src/audio_driver/audio.cpp
   src/parser/parser.cpp
