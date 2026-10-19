@@ -29,7 +29,7 @@ int main() {
   std::unordered_map<int, std::string> jsonContent;
   try {
     content = parser.getFileContent(
-        "/home/thegrigorijagen/mechvibes_custom/Razer/config.json");
+        "/home/user/custom_soundpack/config.json");
     cout << "Config Loaded Successfully!\n";
     jsonContent = parser.loadConfig(content);
     keyboard.listenToInput("/dev/input/event0", jsonContent, player);
