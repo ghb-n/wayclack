@@ -1,3 +1,7 @@
+2026-19-10 - WayClack improvement
+- Now it detects keyboard and MechVibes configs via <linux/input.h>
+- It know parse the "config.json" via nlohman modern json C++ lib
+
 2026-18-10 - WayClack Start
 - Project start with mainwindow.h/.cpp
 - CMakeLists.txt with SDL2 libs
