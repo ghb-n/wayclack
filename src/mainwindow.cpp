@@ -9,7 +9,7 @@
 #include <string>
 
 #ifndef WAYCLACK_VERSION
-#define WAYCLACK_VERSION "dev"
+#define WAYCLACK_VERSION "1.0.0"
 #endif
 
 using namespace std;
